@@ -1,12 +1,27 @@
+import { Actor } from 'apify';
 import { PlaywrightCrawler, Dataset } from 'crawlee';
 import * as cheerio from 'cheerio';
 
-// Basic config - user would inject this via Apify Input in prod
-const INPUT = {
+await Actor.init();
+
+// Default input for local testing (fallback)
+const DEFAULT_INPUT = {
     searchTerms: ['Dentists'],
     location: 'New York, NY',
-    maxResults: 10
+    maxResults: 10,
+    proxyConfiguration: {
+        useApifyProxy: true,
+        apifyProxyGroups: ['RESIDENTIAL'] // Google Maps needs residential usually
+    }
 };
+
+const input = await Actor.getInput() || DEFAULT_INPUT;
+const { searchTerms, location, maxResults, proxyConfiguration: proxyConfigInput } = input;
+
+// Create Proxy Configuration
+// This automatically uses process.env.APIFY_PROXY_PASSWORD if available, 
+// or allows open proxies if configured.
+const proxyConfiguration = await Actor.createProxyConfiguration(proxyConfigInput);
 
 // --- TECH DETECTION LOGIC ---
 const detectTech = (html, headers = {}) => {
@@ -55,50 +70,52 @@ const detectTech = (html, headers = {}) => {
 };
 
 const crawler = new PlaywrightCrawler({
-    // Headless false for dev/debugging visibility
+    proxyConfiguration,
+    // Headless false locally for debugging, true in prod usually
     headless: false,
     
-    // Concurrency settings
-    maxConcurrency: 1, // Keep low for Phase 1 to avoid blocks
+    // Concurrency settings - increased slightly for Phase 3 but still conservative for Maps
+    maxConcurrency: 2, 
     
-    requestHandler: async ({ page, request, log, enqueueLinks, parseWithCheerio }) => {
+    // Session management for rotation
+    useSessionPool: true,
+    sessionPoolOptions: {
+        maxPoolSize: 100,
+    },
+
+    requestHandler: async ({ page, request, log, enqueueLinks }) => {
         log.info(`Processing ${request.url} [${request.label}]`);
 
         // --- PHASE 1: START (Search) ---
         if (request.label === 'START') {
-            const { searchTerms, location } = request.userData;
-            const query = `${searchTerms[0]} in ${location}`; // Taking first term for MVP
+            const query = `${searchTerms[0]} in ${location}`; 
             
             log.info(`Searching for: ${query}`);
             
-            // 1. Handle Consent (Google keeps changing this, basic attempt)
             try {
                 const consentBtn = page.getByRole('button', { name: 'Accept all' }).first();
-                if (await consentBtn.isVisible({ timeout: 2000 })) {
+                if (await consentBtn.isVisible({ timeout: 5000 })) {
                     await consentBtn.click();
                     log.info('Consent accepted');
                 }
             } catch (e) {}
 
-            // 2. Input Search
             await page.waitForSelector('#searchboxinput');
             await page.locator('#searchboxinput').fill(query);
             await page.locator('#searchbox-searchbutton').click();
             
-            // 3. Wait for feed
             await page.waitForSelector('div[role="feed"]', { timeout: 15000 });
             
-            // 4. Scroll & Collect
-            // We scroll a few times to get initial results
             const feed = page.locator('div[role="feed"]');
             
+            // Scroll logic
             log.info('Scrolling for results...');
-            for (let i = 0; i < 3; i++) { // Reduced scroll count for dev speed
+            // In a real run, we'd base this on maxResults
+            for (let i = 0; i < 5; i++) {
                 await feed.evaluate((el) => el.scrollTop = el.scrollHeight);
                 await page.waitForTimeout(2000); 
             }
 
-            // 5. Enqueue Listings
             const links = await page.locator('a[href^="https://www.google.com/maps/place"]').all();
             log.info(`Found ${links.length} potential listings.`);
             
@@ -110,7 +127,8 @@ const crawler = new PlaywrightCrawler({
                 }
             }
             
-            const uniqueUrls = [...new Set(urls)];
+            // Limit to maxResults if needed (basic slicing)
+            const uniqueUrls = [...new Set(urls)].slice(0, maxResults);
             log.info(`Enqueuing ${uniqueUrls.length} unique places.`);
             
             await crawler.addRequests(uniqueUrls.map(url => ({
@@ -123,27 +141,31 @@ const crawler = new PlaywrightCrawler({
         if (request.label === 'DETAIL') {
             log.info(`Scraping details: ${request.url}`);
             
-            await page.waitForSelector('h1', { timeout: 10000 });
+            // Basic error handling for navigation issues
+            try {
+                await page.waitForSelector('h1', { timeout: 10000 });
+            } catch (e) {
+                log.warning(`Failed to load details for ${request.url} - retrying session.`);
+                throw e; // Retry
+            }
+
             const title = await page.locator('h1').textContent();
             
             let website = null;
             let phone = null;
             let address = null;
             
-            // Website extraction
             const webLocator = page.locator('a[data-item-id="authority"]');
             if (await webLocator.count() > 0) {
                 website = await webLocator.getAttribute('href');
             }
 
-            // Phone extraction
             const phoneLocator = page.locator('button[data-item-id^="phone:"]');
             if (await phoneLocator.count() > 0) {
                 phone = await phoneLocator.getAttribute('aria-label');
                 if (phone) phone = phone.replace('Phone: ', '').trim();
             }
 
-            // Address extraction
             const addressLocator = page.locator('button[data-item-id="address"]');
             if (await addressLocator.count() > 0) {
                  address = await addressLocator.getAttribute('aria-label');
@@ -162,6 +184,8 @@ const crawler = new PlaywrightCrawler({
             // --- PHASE 2: ENRICHMENT ---
             if (website) {
                 log.info(`Website found for ${title}: ${website}. Enqueuing enrichment.`);
+                // Use a different proxy strategy for websites if needed (datacenter is usually cheaper/faster than residential)
+                // For now, we inherit the same proxy config for simplicity.
                 await crawler.addRequests([{
                     url: website,
                     label: 'ENRICH',
@@ -179,14 +203,9 @@ const crawler = new PlaywrightCrawler({
             log.info(`Enriching data for: ${mapsData.title} (${request.url})`);
 
             try {
-                // Determine response headers
-                const response = await page.waitForResponse(resp => resp.url() === request.url, { timeout: 5000 }).catch(() => null);
+                const response = await page.waitForResponse(resp => resp.url() === request.url, { timeout: 10000 }).catch(() => null);
                 const headers = response ? response.headers() : {};
-
-                // Get HTML content
                 const html = await page.content();
-                
-                // Run detection
                 const techStack = detectTech(html, headers);
                 
                 log.info(`Detected Tech: ${techStack.join(', ')}`);
@@ -199,6 +218,8 @@ const crawler = new PlaywrightCrawler({
 
             } catch (e) {
                 log.error(`Enrichment failed for ${request.url}: ${e.message}`);
+                // Don't throw here to avoid retrying the enrichment endlessly if it's just a dead site
+                // Just log it and save what we have
                 await Dataset.pushData({
                     ...mapsData,
                     techStack: [],
@@ -210,11 +231,12 @@ const crawler = new PlaywrightCrawler({
     },
 });
 
-// Run
 await crawler.run([
     {
         url: 'https://www.google.com/maps',
         label: 'START',
-        userData: INPUT
+        userData: { ...input } 
     }
 ]);
+
+await Actor.exit();
