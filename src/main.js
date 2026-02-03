@@ -11,19 +11,15 @@ const DEFAULT_INPUT = {
     maxResults: 10,
     proxyConfiguration: {
         useApifyProxy: true,
-        apifyProxyGroups: ['RESIDENTIAL'] // Google Maps needs residential usually
+        apifyProxyGroups: ['RESIDENTIAL']
     }
 };
 
 const input = await Actor.getInput() || DEFAULT_INPUT;
 const { searchTerms, location, maxResults, proxyConfiguration: proxyConfigInput } = input;
 
-// Create Proxy Configuration
-// This automatically uses process.env.APIFY_PROXY_PASSWORD if available, 
-// or allows open proxies if configured.
 const proxyConfiguration = await Actor.createProxyConfiguration(proxyConfigInput);
 
-// --- TECH DETECTION LOGIC ---
 const detectTech = (html, headers = {}) => {
     const $ = cheerio.load(html);
     const tech = new Set();
@@ -37,7 +33,7 @@ const detectTech = (html, headers = {}) => {
     if (generator.includes('squarespace')) tech.add('Squarespace');
     if (generator.includes('joomla')) tech.add('Joomla');
 
-    // 2. Script Signatures (src patterns)
+    // 2. Script Signatures
     $('script').each((i, el) => {
         const src = $(el).attr('src') || '';
         if (src.includes('wp-content') || src.includes('wp-includes')) tech.add('WordPress');
@@ -50,7 +46,7 @@ const detectTech = (html, headers = {}) => {
         if (src.includes('_next/')) tech.add('Next.js');
     });
 
-    // 3. HTML Content Patterns
+    // 3. HTML Content
     if (htmlString.includes('react-root') || htmlString.includes('data-reactroot')) tech.add('React');
     if (htmlString.includes('ng-app') || htmlString.includes('ng-controller')) tech.add('Angular');
     if (htmlString.includes('data-v-')) tech.add('Vue.js');
@@ -71,13 +67,8 @@ const detectTech = (html, headers = {}) => {
 
 const crawler = new PlaywrightCrawler({
     proxyConfiguration,
-    // Headless false locally for debugging, true in prod usually
     headless: false,
-    
-    // Concurrency settings - increased slightly for Phase 3 but still conservative for Maps
     maxConcurrency: 2, 
-    
-    // Session management for rotation
     useSessionPool: true,
     sessionPoolOptions: {
         maxPoolSize: 100,
@@ -86,34 +77,86 @@ const crawler = new PlaywrightCrawler({
     requestHandler: async ({ page, request, log, enqueueLinks }) => {
         log.info(`Processing ${request.url} [${request.label}]`);
 
+        // --- SHARED: CONSENT HANDLING ---
+        // Run on every request to ensure we bypass the consent wall
+        const handleConsent = async () => {
+            const consentSelectors = [
+                'button[aria-label="Accept all"]',
+                'button[aria-label="Tout accepter"]',
+                'button:has-text("Accept all")',
+                'button:has-text("Tout accepter")',
+                'span:has-text("Accept all")',
+                'span:has-text("Tout accepter")',
+                'form[action*="consent"] button',
+                'button[jsname="tBTCr"]' 
+            ];
+            
+            // Fast check first
+            try {
+                // If title indicates consent page, we MUST look for buttons
+                // But generally checking for visibility is enough
+                for (const selector of consentSelectors) {
+                    const btn = page.locator(selector).first();
+                    if (await btn.isVisible({ timeout: 500 })) { 
+                        log.info(`[Consent] Found button: ${selector}, clicking...`);
+                        await Promise.all([
+                            page.waitForLoadState('load', { timeout: 15000 }).catch(() => {}),
+                            btn.click()
+                        ]);
+                        log.info(`[Consent] Accepted.`);
+                        // Short wait for transition
+                        await page.waitForTimeout(2000);
+                        return true;
+                    }
+                }
+            } catch (e) {
+                log.debug('Consent check skipped/failed: ' + e.message);
+            }
+            return false;
+        };
+
+        await handleConsent();
+
         // --- PHASE 1: START (Search) ---
         if (request.label === 'START') {
             const query = `${searchTerms[0]} in ${location}`; 
             
             log.info(`Searching for: ${query}`);
             
+            // Wait for search box (robustness after consent)
+            let searchBoxSelector = '#searchboxinput';
             try {
-                const consentBtn = page.getByRole('button', { name: 'Accept all' }).first();
-                if (await consentBtn.isVisible({ timeout: 5000 })) {
-                    await consentBtn.click();
-                    log.info('Consent accepted');
+                await page.waitForSelector(searchBoxSelector, { timeout: 10000 });
+            } catch (e) {
+                log.info('Standard search box missing. Checking for input[name="q"]...');
+                if (await page.locator('input[name="q"]').isVisible()) {
+                    searchBoxSelector = 'input[name="q"]';
+                } else {
+                    log.warning('Search box missing. Investigating...');
+                    throw e;
                 }
-            } catch (e) {}
-
-            await page.waitForSelector('#searchboxinput');
-            await page.locator('#searchboxinput').fill(query);
-            await page.locator('#searchbox-searchbutton').click();
+            }
+            
+            await page.locator(searchBoxSelector).fill(query);
+            await page.locator(searchBoxSelector).press('Enter');
             
             await page.waitForSelector('div[role="feed"]', { timeout: 15000 });
             
             const feed = page.locator('div[role="feed"]');
             
-            // Scroll logic
             log.info('Scrolling for results...');
-            // In a real run, we'd base this on maxResults
             for (let i = 0; i < 5; i++) {
+                const previousCount = await page.locator('a[href^="https://www.google.com/maps/place"]').count();
                 await feed.evaluate((el) => el.scrollTop = el.scrollHeight);
-                await page.waitForTimeout(2000); 
+                try {
+                    await page.waitForFunction(
+                        (prev) => document.querySelectorAll('a[href^="https://www.google.com/maps/place"]').length > prev,
+                        previousCount,
+                        { timeout: 3000 }
+                    );
+                } catch (e) {
+                    // Timeout expected if end of list
+                }
             }
 
             const links = await page.locator('a[href^="https://www.google.com/maps/place"]').all();
@@ -127,7 +170,6 @@ const crawler = new PlaywrightCrawler({
                 }
             }
             
-            // Limit to maxResults if needed (basic slicing)
             const uniqueUrls = [...new Set(urls)].slice(0, maxResults);
             log.info(`Enqueuing ${uniqueUrls.length} unique places.`);
             
@@ -141,16 +183,22 @@ const crawler = new PlaywrightCrawler({
         if (request.label === 'DETAIL') {
             log.info(`Scraping details: ${request.url}`);
             
-            // Basic error handling for navigation issues
             try {
                 await page.waitForSelector('h1', { timeout: 10000 });
             } catch (e) {
-                log.warning(`Failed to load details for ${request.url} - retrying session.`);
-                throw e; // Retry
+                log.warning(`Failed to load details (h1) for ${request.url} - retrying session.`);
+                throw e; 
             }
 
-            const title = await page.locator('h1').textContent();
+            const title = await page.locator('h1').first().textContent();
             
+            // Double check if we are still on consent page despite handleConsent
+            // (Sometimes it takes a moment or selector was missed)
+            if (title === 'Before you continue to Google') {
+                 log.warning('Still on consent page. Retrying session.');
+                 throw new Error('Consent wall blocked details page');
+            }
+
             let website = null;
             let phone = null;
             let address = null;
@@ -184,8 +232,6 @@ const crawler = new PlaywrightCrawler({
             // --- PHASE 2: ENRICHMENT ---
             if (website) {
                 log.info(`Website found for ${title}: ${website}. Enqueuing enrichment.`);
-                // Use a different proxy strategy for websites if needed (datacenter is usually cheaper/faster than residential)
-                // For now, we inherit the same proxy config for simplicity.
                 await crawler.addRequests([{
                     url: website,
                     label: 'ENRICH',
@@ -218,8 +264,6 @@ const crawler = new PlaywrightCrawler({
 
             } catch (e) {
                 log.error(`Enrichment failed for ${request.url}: ${e.message}`);
-                // Don't throw here to avoid retrying the enrichment endlessly if it's just a dead site
-                // Just log it and save what we have
                 await Dataset.pushData({
                     ...mapsData,
                     techStack: [],
@@ -233,7 +277,7 @@ const crawler = new PlaywrightCrawler({
 
 await crawler.run([
     {
-        url: 'https://www.google.com/maps',
+        url: 'https://www.google.com/maps?hl=en',
         label: 'START',
         userData: { ...input } 
     }

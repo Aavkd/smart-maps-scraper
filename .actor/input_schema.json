@@ -1,0 +1,39 @@
+{
+    "title": "Smart Maps Scraper",
+    "type": "object",
+    "schemaVersion": 1,
+    "properties": {
+        "searchTerms": {
+            "title": "Search Terms",
+            "type": "array",
+            "description": "List of business types or terms to search for.",
+            "editor": "stringList",
+            "prefill": ["Dentists"]
+        },
+        "location": {
+            "title": "Location",
+            "type": "string",
+            "description": "The location to search in (City, State, or Zip).",
+            "editor": "textfield",
+            "prefill": "New York, NY"
+        },
+        "maxResults": {
+            "title": "Max Results",
+            "type": "integer",
+            "description": "Maximum number of unique results to scrape.",
+            "default": 10,
+            "minimum": 1
+        },
+        "proxyConfiguration": {
+            "title": "Proxy Configuration",
+            "type": "object",
+            "description": "Select proxies to be used by your crawler.",
+            "prefill": {
+                "useApifyProxy": true,
+                "apifyProxyGroups": ["RESIDENTIAL"]
+            },
+            "editor": "proxy"
+        }
+    },
+    "required": ["searchTerms", "location", "proxyConfiguration"]
+}

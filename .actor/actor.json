@@ -1,0 +1,7 @@
+{
+    "actorSpecification": 1,
+    "name": "smart-maps-scraper",
+    "version": "1.0",
+    "dockerfile": "./Dockerfile",
+    "readme": "./README.md"
+}
