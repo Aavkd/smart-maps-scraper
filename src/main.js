@@ -108,9 +108,31 @@ const crawler = new PlaywrightCrawler({
             await page.locator(searchBoxSelector).fill(query);
             await page.locator(searchBoxSelector).press('Enter');
             
-            await page.waitForSelector('div[role="feed"]', { timeout: 15000 });
+            // Improved feed detection (Phase A, B, C)
+            const feedSelectors = [
+                'div[role="feed"]',
+                'div[aria-label*="Results"]',
+                'div[aria-label*="résultats"]',
+                'div.m6QErb[aria-label]'
+            ];
+
+            let feedContainer = null;
+            let foundSelector = null;
+            for (const selector of feedSelectors) {
+                try {
+                    await page.waitForSelector(selector, { timeout: 10000 }); // Phase A: Reduced timeout
+                    feedContainer = await page.$(selector);
+                    if (feedContainer) {
+                        log.info(`Feed found via: ${selector}`); // Phase C: Log info
+                        foundSelector = selector;
+                        break;
+                    }
+                } catch { continue; }
+            }
+
+            if (!feedContainer) throw new Error('Feed container not found after trying all selectors');
             
-            const feed = page.locator('div[role="feed"]');
+            const feed = page.locator(foundSelector);
             
             log.info('Scrolling for results...');
             // Scroll loop
