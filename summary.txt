@@ -1,0 +1,13 @@
+J'ai réécrit le `README.md` pour `smart-maps-scraper` comme demandé.
+
+### Résumé des changements :
+
+1.  **Titre & Tagline** : Changé pour *"Smart Maps Scraper — Google Maps + Tech Stack Detection"* avec une sous-phrase orientée bénéfice (Turn Google Maps results into enriched B2B leads...).
+2.  **Why This Actor?** : Ajout de 4 points forts (Tech Stack Detection, Contact Enrichment, Lead-Gen Ready, Cost-Effective) pour se différencier des scrapers "basiques".
+3.  **Use Cases** : Ciblage explicite des Agences, Sales et Lead Gen specialists.
+4.  **Exemple de Sortie** : Ajout d'un bloc JSON clair montrant l'enrichissement (emails, socials, technologies).
+5.  **Options d'Entrée** : Tableau simplifié des paramètres essentiels (`searchStrings`, `scrapeWebsite`, etc.).
+6.  **Pricing** : Mention rassurante sur le coût économique et l'efficacité.
+7.  **Limitations** : Avertissement honnête sur la mémoire recommandée (4 GB) et l'importance des proxies résidentiels.
+
+Le fichier est sauvegardé et prêt pour l'Apify Store. 🚀

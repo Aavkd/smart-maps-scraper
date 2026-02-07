@@ -1,58 +1,97 @@
-# Smart Google Maps Scraper
+# 🗺️ Smart Maps Scraper — Google Maps + Tech Stack Detection
 
-A robust Apify Actor for scraping Google Maps business listings.
+**Find leads on Google Maps and instantly know what tech they use.**
 
-## Features
-- **Smart Tech Detection**: Identifies website technologies (WordPress, Shopify, React, Next.js, etc.)
-- **Robust Consent Handling**: Automatically bypasses Google consent walls (EN, FR, DE, ES).
-- **Anti-Blocking**: Detects "unusual traffic" blocking and retries with fresh sessions/proxies.
-- **Resilient Selectors**: Uses multiple fallback strategies for finding search boxes and results.
+Stop wasting time on prospects who don't fit your stack. This actor scrapes Google Maps businesses AND detects their website technology (WordPress, Shopify, Wix, etc.) — all in one run.
 
-## Usage
+---
 
-### Recommended Apify Memory
-For optimal performance, especially when `enrichWebsite` is enabled, we recommend allocating **at least 4GB of memory** on the Apify platform. Enrichment involves concurrent browser sessions (Playwright fallback) which can be memory-intensive.
+## 🎯 Why This Actor?
 
-### Local Development
-```bash
-# Install dependencies
-npm install
+| Feature | Benefit |
+|---------|---------|
+| **Tech Stack Detection** | Know if they use WordPress, Shopify, Wix, React, etc. |
+| **Lead Gen Ready** | Get phone, address, website in one clean JSON |
+| **Smart Enrichment** | HTTP-first (fast) + Playwright fallback (reliable) |
+| **Pay Per Result** | Only $0.002/result — no subscription |
 
-# Run locally (uses default input in src/main.js)
-npm start
-```
+---
 
-### Input Configuration
-The actor accepts the following input:
+## 👥 Who Is This For?
+
+- **Sales Teams** — Find prospects using specific tech stacks
+- **Agencies** — Build lead lists for web dev/redesign pitches
+- **Marketers** — Target businesses by technology for ads
+- **Researchers** — Analyze local business tech adoption
+
+---
+
+## 📦 What You Get
+
 ```json
 {
-    "searchTerms": ["Dentists", "Gyms"],
-    "location": "New York, NY",
-    "maxResults": 50,
-    "proxyConfiguration": {
-        "useApifyProxy": true
-    }
+  "title": "Acme Restaurant",
+  "address": "123 Main St, New York, NY",
+  "phone": "+1 212-555-1234",
+  "website": "https://acmerestaurant.com",
+  "mapsUrl": "https://google.com/maps/place/...",
+  "techStack": ["WordPress", "Google Analytics", "Cloudflare"],
+  "enrichmentStatus": "success",
+  "scrapedAt": "2026-02-07T22:15:00Z"
 }
 ```
 
-## Architecture
-1. **Search Phase**: Locating the search box (robustly), scrolling the feed, and collecting Place URLs.
-2. **Detail Phase**: Extracting Name, Address, Phone, Website.
-3. **Enrichment Phase**: If a website is found, visit it (via fast HTTP or Playwright fallback) to detect the tech stack.
+---
 
-## Recent Updates (Phase 1 - Quick Wins)
-- **Faster Enrichment**: Reduced maximum enrichment timeout (HTTP to 30s, Playwright fallback to 45s).
-- **Resource Optimization**: Limited enrichment retries to 1 to save costs and avoid hanging on slow sites.
-- **Memory Recommendation**: Added note for recommended Apify memory (4GB+).
+## ⚙️ Input Options
 
-## Recent Updates (Phase 2 - Performance)
-- **Fast HTTP Enrichment**: Uses lightweight HTTP requests (Axios/Cheerio) instead of full browser navigation for technology detection.
-- **Enrichment Controls**:
-    - `enrichWebsite` (boolean): Toggle website enrichment on/off.
-    - `maxEnrich` (integer): Limit the number of websites to enrich to save resources.
-- **Fallback Strategy**: Automatically falls back to Playwright if HTTP enrichment fails (e.g., due to blocking or complex SPAs).
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `searchTerms` | array | required | Keywords to search (e.g., "Dentists", "Restaurants") |
+| `location` | string | required | Location (e.g., "New York, NY" or "Paris, France") |
+| `maxResults` | number | 20 | Maximum results to scrape |
+| `enrichWebsite` | boolean | true | Enable tech stack detection |
+| `maxEnrich` | number | 100 | Max websites to analyze |
+| `proxyConfiguration` | object | Apify Proxy | Proxy settings (Residential recommended) |
 
-## Recent Updates (Phase 3 - Robustness)
-- Added multi-language support for cookie consent (FR/DE/ES).
-- Implemented soft-fail and retry logic for "Unusual Traffic" blocking.
-- Improved selector strategies for search input and result containers.
+---
+
+## 💰 Pricing
+
+**Pay only for what you use:**
+- **$0.002 per result** (~$2 per 1,000 leads)
+- No monthly fee
+- No minimum
+
+---
+
+## 🔧 How It Works
+
+1. **Search** — Enter keywords + location
+2. **Scrape** — Actor visits Google Maps and extracts business details
+3. **Enrich** — Each website is analyzed for tech stack (WordPress, Shopify, etc.)
+4. **Export** — Get clean JSON ready for your CRM or spreadsheet
+
+---
+
+## ⚠️ Recommendations
+
+- **Memory**: Use **4GB+** for best performance (reduces retries)
+- **Proxy**: Residential proxies recommended for Google Maps
+- **Rate**: ~1 result/minute with enrichment enabled
+
+---
+
+## 🛠️ Tech Stack Detected
+
+WordPress, Shopify, Wix, Squarespace, Webflow, React, Vue.js, Angular, Next.js, PHP, Laravel, Ruby on Rails, Django, Cloudflare, Nginx, Apache, Google Analytics, and more.
+
+---
+
+## 📬 Support
+
+Questions? Issues? Open a GitHub issue or contact via Apify.
+
+---
+
+**Built for lead gen. Priced for everyone.**

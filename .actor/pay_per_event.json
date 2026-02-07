@@ -1,0 +1,7 @@
+{
+  "RESULT_SCRAPED": {
+    "eventName": "Result scraped",
+    "priceUsd": 0.002,
+    "isOneTimeEvent": false
+  }
+}
