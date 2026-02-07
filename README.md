@@ -10,6 +10,9 @@ A robust Apify Actor for scraping Google Maps business listings.
 
 ## Usage
 
+### Recommended Apify Memory
+For optimal performance, especially when `enrichWebsite` is enabled, we recommend allocating **at least 4GB of memory** on the Apify platform. Enrichment involves concurrent browser sessions (Playwright fallback) which can be memory-intensive.
+
 ### Local Development
 ```bash
 # Install dependencies
@@ -36,6 +39,11 @@ The actor accepts the following input:
 1. **Search Phase**: Locating the search box (robustly), scrolling the feed, and collecting Place URLs.
 2. **Detail Phase**: Extracting Name, Address, Phone, Website.
 3. **Enrichment Phase**: If a website is found, visit it (via fast HTTP or Playwright fallback) to detect the tech stack.
+
+## Recent Updates (Phase 1 - Quick Wins)
+- **Faster Enrichment**: Reduced maximum enrichment timeout (HTTP to 30s, Playwright fallback to 45s).
+- **Resource Optimization**: Limited enrichment retries to 1 to save costs and avoid hanging on slow sites.
+- **Memory Recommendation**: Added note for recommended Apify memory (4GB+).
 
 ## Recent Updates (Phase 2 - Performance)
 - **Fast HTTP Enrichment**: Uses lightweight HTTP requests (Axios/Cheerio) instead of full browser navigation for technology detection.
