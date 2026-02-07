@@ -7,8 +7,5 @@
     "buildTag": "latest",
     "dockerfile": "./Dockerfile",
     "readme": "./README.md",
-    "actorImage": "apify/actor-node-playwright-chrome:20",
-    "storages": {
-        "dataset": "./storage/datasets/default"
-    }
+    "actorImage": "apify/actor-node-playwright-chrome:20"
 }
