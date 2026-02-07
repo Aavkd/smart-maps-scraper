@@ -1,0 +1,91 @@
+{
+  "actorSpecification": 1,
+  "fields": {
+    "title": {
+      "label": "Business Name",
+      "format": "text"
+    },
+    "address": {
+      "label": "Address",
+      "format": "text"
+    },
+    "phone": {
+      "label": "Phone",
+      "format": "text"
+    },
+    "website": {
+      "label": "Website",
+      "format": "link"
+    },
+    "mapsUrl": {
+      "label": "Maps URL",
+      "format": "link"
+    },
+    "techStack": {
+      "label": "Tech Stack",
+      "format": "array"
+    },
+    "enrichmentStatus": {
+      "label": "Enrichment Status",
+      "format": "text"
+    },
+    "scrapedAt": {
+      "label": "Scraped At",
+      "format": "date"
+    }
+  },
+  "views": {
+    "overview": {
+      "title": "Overview",
+      "transformation": {
+        "fields": [
+          "title",
+          "address",
+          "phone",
+          "website",
+          "mapsUrl",
+          "techStack",
+          "enrichmentStatus",
+          "scrapedAt"
+        ]
+      },
+      "display": {
+        "component": "table",
+        "properties": {
+          "title": {
+            "label": "Business Name",
+            "format": "text"
+          },
+          "address": {
+            "label": "Address",
+            "format": "text"
+          },
+          "phone": {
+            "label": "Phone",
+            "format": "text"
+          },
+          "website": {
+            "label": "Website",
+            "format": "link"
+          },
+          "mapsUrl": {
+            "label": "Maps URL",
+            "format": "link"
+          },
+          "techStack": {
+            "label": "Tech Stack",
+            "format": "array"
+          },
+          "enrichmentStatus": {
+            "label": "Enrichment Status",
+            "format": "text"
+          },
+          "scrapedAt": {
+            "label": "Scraped At",
+            "format": "date"
+          }
+        }
+      }
+    }
+  }
+}

@@ -8,5 +8,8 @@
     "dockerfile": "./Dockerfile",
     "readme": "./README.md",
     "actorImage": "apify/actor-node-playwright-chrome:20",
-    "pricingModel": "PAY_PER_EVENT"
+    "pricingModel": "PAY_PER_EVENT",
+    "storages": {
+        "dataset": "./dataset_schema.json"
+    }
 }
