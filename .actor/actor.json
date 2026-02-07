@@ -10,6 +10,5 @@
     "actorImage": "apify/actor-node-playwright-chrome:20",
     "storages": {
         "dataset": "./storage/datasets/default"
-    },
-    "input": "./storage/key_value_stores/default/INPUT.json"
+    }
 }
