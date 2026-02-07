@@ -1,0 +1,20 @@
+{
+  "actorOutputSchemaVersion": 1,
+  "title": "Smart Maps Scraper Output",
+  "description": "Google Maps business data with tech stack detection.",
+  "type": "object",
+  "properties": {
+    "dataset": {
+      "type": "string",
+      "title": "Scraped Businesses (JSON)",
+      "description": "JSON dataset containing business details, contact info, and tech stack.",
+      "template": "{{links.apiDefaultDatasetUrl}}/items"
+    },
+    "overview": {
+      "type": "string",
+      "title": "Overview Table",
+      "description": "Table view of scraped businesses with tech stack info",
+      "template": "{{links.apiDefaultDatasetUrl}}/items?view=overview"
+    }
+  }
+}
