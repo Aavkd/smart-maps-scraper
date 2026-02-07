@@ -1,14 +1,10 @@
-# Dockerfile
 FROM apify/actor-node-playwright-chrome:20
 
-# Copy package.json and package-lock.json
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install --omit=dev
+RUN npm install --omit=dev --omit=optional \
+    && npm cache clean --force
 
-# Copy source code
-COPY . .
+COPY . ./
 
-# Run the image
-CMD [ "npm", "start" ]
+CMD ["npm", "start"]

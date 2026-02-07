@@ -1,4 +1,6 @@
 {
+    "actorSpecification": 1,
+    "name": "smart-maps-scraper",
     "title": "Smart Maps Scraper",
     "description": "Scrape Google Maps for business details (phone, website, address) and enrich with website technology stack detection.",
     "version": "1.0.0",
