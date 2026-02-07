@@ -1,53 +1,43 @@
-# Smart Maps Scraper
+# Smart Google Maps Scraper
 
-**Smart Maps Scraper** is a powerful Apify actor designed to extract business listings from Google Maps and enrich them with technology stack data. It not only finds businesses but also analyzes their websites to identify the technologies they use (e.g., WordPress, Shopify, Next.js).
+A robust Apify Actor for scraping Google Maps business listings.
 
-## 🚀 Features
+## Features
+- **Smart Tech Detection**: Identifies website technologies (WordPress, Shopify, React, Next.js, etc.)
+- **Robust Consent Handling**: Automatically bypasses Google consent walls (EN, FR, DE, ES).
+- **Anti-Blocking**: Detects "unusual traffic" blocking and retries with fresh sessions/proxies.
+- **Resilient Selectors**: Uses multiple fallback strategies for finding search boxes and results.
 
--   **📍 Google Maps Extraction**: Scrapes business details including title, address, phone number, and website URL.
--   **🛠️ Tech Stack Detection**: Visits the business website to detect used technologies (CMS, Frameworks, Analytics, etc.).
--   **⚡ Lead Enrichment**: Enhances basic maps data with valuable technical insights for better lead qualification.
--   **🛡️ Proxy Support**: Built-in support for Apify Proxy to ensure reliable scraping.
+## Usage
 
-## 📋 Usage
+### Local Development
+```bash
+# Install dependencies
+npm install
 
-This actor requires the following inputs:
+# Run locally (uses default input in src/main.js)
+npm start
+```
 
--   **Search Terms**: A list of keywords to search for (e.g., "Dentists", "Coffee Shops").
--   **Location**: The geographic area to search in (e.g., "London", "New York, NY").
--   **Max Results**: Limit the number of results to scrape.
--   **Proxy Configuration**: Proxy settings (Residential proxies recommended).
-
-### Example Input
-
+### Input Configuration
+The actor accepts the following input:
 ```json
 {
-    "searchTerms": ["Marketing Agencies"],
-    "location": "San Francisco, CA",
+    "searchTerms": ["Dentists", "Gyms"],
+    "location": "New York, NY",
     "maxResults": 50,
     "proxyConfiguration": {
-        "useApifyProxy": true,
-        "apifyProxyGroups": ["RESIDENTIAL"]
+        "useApifyProxy": true
     }
 }
 ```
 
-## 📊 Output
+## Architecture
+1. **Search Phase**: locating the search box (robustly), scrolling the feed, and collecting Place URLs.
+2. **Detail Phase**: Extracting Name, Address, Phone, Website.
+3. **Enrichment Phase**: If a website is found, visit it to detect the tech stack.
 
-The actor stores results in the default dataset. Each item contains:
-
--   `title`: Business Name
--   `address`: Full Address
--   `phone`: Phone Number
--   `website`: Website URL
--   `mapsUrl`: Google Maps Link
--   `techStack`: List of detected technologies (e.g., `["WordPress", "Google Analytics"]`)
--   `enrichmentStatus`: Status of the website analysis (`success`, `no-website`, `failed`)
-
-## 💡 Use Cases
-
--   **Lead Generation**: Find businesses using specific technologies (e.g., "Find Shopify stores in London").
--   **Market Research**: Analyze the tech adoption of businesses in a specific region.
--   **Competitor Analysis**: Gather data on competitors' locations and stacks.
-
----
+## Recent Updates (Phase 3 - Robustness)
+- Added multi-language support for cookie consent (FR/DE/ES).
+- Implemented soft-fail and retry logic for "Unusual Traffic" blocking.
+- Improved selector strategies for search input and result containers.

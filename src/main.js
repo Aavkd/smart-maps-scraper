@@ -1,6 +1,6 @@
 import { Actor } from 'apify';
 import { PlaywrightCrawler, Dataset } from 'crawlee';
-import * as cheerio from 'cheerio';
+import { enrichWithHttp } from './utils/enrichment.js';
 
 await Actor.init();
 
@@ -9,6 +9,8 @@ const DEFAULT_INPUT = {
     searchTerms: ['Dentists'],
     location: 'New York, NY',
     maxResults: 10,
+    enrichWebsite: true,
+    maxEnrich: 100,
     proxyConfiguration: {
         useApifyProxy: true,
         apifyProxyGroups: ['RESIDENTIAL']
@@ -16,54 +18,19 @@ const DEFAULT_INPUT = {
 };
 
 const input = await Actor.getInput() || DEFAULT_INPUT;
-const { searchTerms, location, maxResults, proxyConfiguration: proxyConfigInput } = input;
+const { 
+    searchTerms, 
+    location, 
+    maxResults, 
+    enrichWebsite = true, 
+    maxEnrich = 100, 
+    proxyConfiguration: proxyConfigInput 
+} = input;
 
 const proxyConfiguration = await Actor.createProxyConfiguration(proxyConfigInput);
 
-const detectTech = (html, headers = {}) => {
-    const $ = cheerio.load(html);
-    const tech = new Set();
-    const htmlString = html.toLowerCase();
-    
-    // 1. Meta Generators
-    const generator = $('meta[name="generator"]').attr('content')?.toLowerCase() || '';
-    if (generator.includes('wordpress')) tech.add('WordPress');
-    if (generator.includes('shopify')) tech.add('Shopify');
-    if (generator.includes('wix')) tech.add('Wix');
-    if (generator.includes('squarespace')) tech.add('Squarespace');
-    if (generator.includes('joomla')) tech.add('Joomla');
-
-    // 2. Script Signatures
-    $('script').each((i, el) => {
-        const src = $(el).attr('src') || '';
-        if (src.includes('wp-content') || src.includes('wp-includes')) tech.add('WordPress');
-        if (src.includes('cdn.shopify.com')) tech.add('Shopify');
-        if (src.includes('static.wixstatic.com')) tech.add('Wix');
-        if (src.includes('squarespace.com')) tech.add('Squarespace');
-        if (src.includes('analytics.js') || src.includes('googletagmanager')) tech.add('Google Analytics');
-        if (src.includes('fbevents.js')) tech.add('Meta Pixel');
-        if (src.includes('next/static')) tech.add('Next.js');
-        if (src.includes('_next/')) tech.add('Next.js');
-    });
-
-    // 3. HTML Content
-    if (htmlString.includes('react-root') || htmlString.includes('data-reactroot')) tech.add('React');
-    if (htmlString.includes('ng-app') || htmlString.includes('ng-controller')) tech.add('Angular');
-    if (htmlString.includes('data-v-')) tech.add('Vue.js');
-
-    // 4. Headers
-    const server = headers['server']?.toLowerCase() || '';
-    const xPoweredBy = headers['x-powered-by']?.toLowerCase() || '';
-    
-    if (server.includes('nginx')) tech.add('Nginx');
-    if (server.includes('apache')) tech.add('Apache');
-    if (server.includes('cloudflare')) tech.add('Cloudflare');
-    if (xPoweredBy.includes('next.js')) tech.add('Next.js');
-    if (xPoweredBy.includes('express')) tech.add('Express');
-    if (xPoweredBy.includes('php')) tech.add('PHP');
-
-    return Array.from(tech);
-};
+// Counter for enriched websites to respect maxEnrich
+let enrichedCount = 0;
 
 const crawler = new PlaywrightCrawler({
     proxyConfiguration,
@@ -74,11 +41,10 @@ const crawler = new PlaywrightCrawler({
         maxPoolSize: 100,
     },
 
-    requestHandler: async ({ page, request, log, enqueueLinks }) => {
+    requestHandler: async ({ page, request, log }) => {
         log.info(`Processing ${request.url} [${request.label}]`);
 
         // --- SHARED: CONSENT HANDLING ---
-        // Run on every request to ensure we bypass the consent wall
         const handleConsent = async () => {
             const consentSelectors = [
                 'button[aria-label="Accept all"]',
@@ -91,10 +57,7 @@ const crawler = new PlaywrightCrawler({
                 'button[jsname="tBTCr"]' 
             ];
             
-            // Fast check first
             try {
-                // If title indicates consent page, we MUST look for buttons
-                // But generally checking for visibility is enough
                 for (const selector of consentSelectors) {
                     const btn = page.locator(selector).first();
                     if (await btn.isVisible({ timeout: 500 })) { 
@@ -104,7 +67,6 @@ const crawler = new PlaywrightCrawler({
                             btn.click()
                         ]);
                         log.info(`[Consent] Accepted.`);
-                        // Short wait for transition
                         await page.waitForTimeout(2000);
                         return true;
                     }
@@ -115,12 +77,14 @@ const crawler = new PlaywrightCrawler({
             return false;
         };
 
-        await handleConsent();
+        // Run consent handling on Maps pages
+        if (request.label === 'START' || request.label === 'DETAIL') {
+            await handleConsent();
+        }
 
         // --- PHASE 1: START (Search) ---
         if (request.label === 'START') {
             const query = `${searchTerms[0]} in ${location}`; 
-            
             log.info(`Searching for: ${query}`);
             
             // Wait for search box (robustness after consent)
@@ -145,6 +109,7 @@ const crawler = new PlaywrightCrawler({
             const feed = page.locator('div[role="feed"]');
             
             log.info('Scrolling for results...');
+            // Scroll loop
             for (let i = 0; i < 5; i++) {
                 const previousCount = await page.locator('a[href^="https://www.google.com/maps/place"]').count();
                 await feed.evaluate((el) => el.scrollTop = el.scrollHeight);
@@ -192,8 +157,6 @@ const crawler = new PlaywrightCrawler({
 
             const title = await page.locator('h1').first().textContent();
             
-            // Double check if we are still on consent page despite handleConsent
-            // (Sometimes it takes a moment or selector was missed)
             if (title === 'Before you continue to Google') {
                  log.warning('Still on consent page. Retrying session.');
                  throw new Error('Consent wall blocked details page');
@@ -220,7 +183,7 @@ const crawler = new PlaywrightCrawler({
                  if (address) address = address.replace('Address: ', '').trim();
             }
 
-            const mapsData = {
+            let mapsData = {
                 title,
                 address,
                 phone,
@@ -229,45 +192,75 @@ const crawler = new PlaywrightCrawler({
                 scrapedAt: new Date().toISOString()
             };
 
-            // --- PHASE 2: ENRICHMENT ---
-            if (website) {
-                log.info(`Website found for ${title}: ${website}. Enqueuing enrichment.`);
-                await crawler.addRequests([{
-                    url: website,
-                    label: 'ENRICH',
-                    userData: { mapsData }
-                }]);
+            // --- PHASE 2: ENRICHMENT (HTTP + Fallback) ---
+            if (website && enrichWebsite && enrichedCount < maxEnrich) {
+                log.info(`Enriching ${website} (HTTP)...`);
+                enrichedCount++;
+                
+                const { techStack, status, error } = await enrichWithHttp(website);
+                
+                if (status === 'success') {
+                    log.info(`[HTTP] Enriched ${title}: ${techStack.join(', ')}`);
+                    mapsData = { ...mapsData, techStack, enrichmentStatus: 'success' };
+                } else {
+                    log.warning(`[HTTP] Failed for ${website}: ${error}. Falling back to Playwright.`);
+                    // Enqueue explicitly for Playwright enrichment if HTTP fails
+                    await crawler.addRequests([{
+                        url: website,
+                        label: 'ENRICH_FALLBACK',
+                        userData: { mapsData }
+                    }]);
+                    return; // Don't push data yet, wait for fallback
+                }
+            } else if (website && enrichWebsite && enrichedCount >= maxEnrich) {
+                 log.info(`Skipping enrichment for ${title} (Limit reached).`);
+                 mapsData = { ...mapsData, enrichmentStatus: 'skipped-limit' };
             } else {
-                log.info(`No website for ${title}. Saving basic data.`);
-                await Dataset.pushData({ ...mapsData, techStack: [], enrichmentStatus: 'no-website' });
+                 mapsData = { ...mapsData, enrichmentStatus: website ? 'skipped-config' : 'no-website' };
             }
+
+            await Dataset.pushData(mapsData);
         }
 
-        // --- PHASE 2: ENRICH (Visit Site & Detect Tech) ---
-        if (request.label === 'ENRICH') {
+        // --- PHASE 2: ENRICH FALLBACK (Playwright) ---
+        if (request.label === 'ENRICH_FALLBACK') {
             const { mapsData } = request.userData;
-            log.info(`Enriching data for: ${mapsData.title} (${request.url})`);
+            log.info(`[Fallback] Enriching ${request.url} with Playwright...`);
 
             try {
+                // Import locally or move detectTech to utils
+                // Since we imported { detectTech } from utils/enrichment.js but detectTech needs cheerio loaded 
+                // which is handled inside the utility. Wait, detectTech in utils takes (html, headers).
+                // We need to import detectTech from utils.
+                
+                // (Note: `detectTech` is not imported in this scope yet in the file I wrote? 
+                // Ah, I need to check my import statement in this `write` call.)
+                // I imported `enrichWithHttp`, but I should also import `detectTech` if I want to use it here.
+                // Or I can just do a simple check here since it's a fallback. 
+                // Let's rely on the one in utils.
+                
                 const response = await page.waitForResponse(resp => resp.url() === request.url, { timeout: 10000 }).catch(() => null);
                 const headers = response ? response.headers() : {};
                 const html = await page.content();
-                const techStack = detectTech(html, headers);
                 
-                log.info(`Detected Tech: ${techStack.join(', ')}`);
+                // Dynamic import to avoid top-level await issues if any (though we are in module)
+                // actually I can just import it at top.
+                const { detectTech } = await import('./utils/enrichment.js');
+                
+                const techStack = detectTech(html, headers);
+                log.info(`[Fallback] Detected Tech: ${techStack.join(', ')}`);
 
                 await Dataset.pushData({
                     ...mapsData,
                     techStack,
-                    enrichmentStatus: 'success'
+                    enrichmentStatus: 'success-fallback'
                 });
-
             } catch (e) {
-                log.error(`Enrichment failed for ${request.url}: ${e.message}`);
+                log.error(`[Fallback] Failed for ${request.url}: ${e.message}`);
                 await Dataset.pushData({
                     ...mapsData,
                     techStack: [],
-                    enrichmentStatus: 'failed',
+                    enrichmentStatus: 'failed-fallback',
                     error: e.message
                 });
             }
