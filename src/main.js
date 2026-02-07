@@ -40,6 +40,10 @@ const crawler = new PlaywrightCrawler({
     sessionPoolOptions: {
         maxPoolSize: 100,
     },
+    // Set global navigation timeout to 45s (covers enrichment).
+    // Maps requests usually complete faster, but this ensures enrichment doesn't hang.
+    navigationTimeoutSecs: 45,
+    requestHandlerTimeoutSecs: 60, // Allow handler to run a bit longer than navigation
 
     requestHandler: async ({ page, request, log }) => {
         log.info(`Processing ${request.url} [${request.label}]`);
@@ -193,33 +197,39 @@ const crawler = new PlaywrightCrawler({
             };
 
             // --- PHASE 2: ENRICHMENT (HTTP + Fallback) ---
+            let finalMapsData = { ...mapsData };
+            
             if (website && enrichWebsite && enrichedCount < maxEnrich) {
-                log.info(`Enriching ${website} (HTTP)...`);
                 enrichedCount++;
+                log.info(`Enriching ${website} (HTTP)...`);
                 
                 const { techStack, status, error } = await enrichWithHttp(website);
                 
                 if (status === 'success') {
                     log.info(`[HTTP] Enriched ${title}: ${techStack.join(', ')}`);
-                    mapsData = { ...mapsData, techStack, enrichmentStatus: 'success' };
+                    finalMapsData = { ...finalMapsData, techStack, enrichmentStatus: 'success' };
+                    await Dataset.pushData(finalMapsData);
                 } else {
                     log.warning(`[HTTP] Failed for ${website}: ${error}. Falling back to Playwright.`);
                     // Enqueue explicitly for Playwright enrichment if HTTP fails
                     await crawler.addRequests([{
                         url: website,
                         label: 'ENRICH_FALLBACK',
-                        userData: { mapsData }
+                        userData: { mapsData: finalMapsData },
+                        maxRetries: 1 // Limit retries to 1 for enrichment fallback
                     }]);
-                    return; // Don't push data yet, wait for fallback
+                    // Return here to avoid pushing data twice or pushing incomplete data
+                    return; 
                 }
-            } else if (website && enrichWebsite && enrichedCount >= maxEnrich) {
-                 log.info(`Skipping enrichment for ${title} (Limit reached).`);
-                 mapsData = { ...mapsData, enrichmentStatus: 'skipped-limit' };
             } else {
-                 mapsData = { ...mapsData, enrichmentStatus: website ? 'skipped-config' : 'no-website' };
+                 if (website && enrichedCount >= maxEnrich) {
+                     log.info(`Skipping enrichment for ${title} (Limit reached).`);
+                     finalMapsData = { ...finalMapsData, enrichmentStatus: 'skipped-limit' };
+                 } else {
+                     finalMapsData = { ...finalMapsData, enrichmentStatus: website ? 'skipped-config' : 'no-website' };
+                 }
+                 await Dataset.pushData(finalMapsData);
             }
-
-            await Dataset.pushData(mapsData);
         }
 
         // --- PHASE 2: ENRICH FALLBACK (Playwright) ---

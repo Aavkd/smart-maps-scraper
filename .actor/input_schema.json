@@ -24,6 +24,19 @@
             "default": 10,
             "minimum": 1
         },
+        "enrichWebsite": {
+            "title": "Enrich Website",
+            "type": "boolean",
+            "description": "If enabled, the scraper will visit the business website to detect technologies (CMS, Analytics, etc.).",
+            "default": true
+        },
+        "maxEnrich": {
+            "title": "Max Enrichments",
+            "type": "integer",
+            "description": "Maximum number of websites to enrich. Useful to limit resource usage.",
+            "default": 100,
+            "minimum": 0
+        },
         "proxyConfiguration": {
             "title": "Proxy Configuration",
             "type": "object",

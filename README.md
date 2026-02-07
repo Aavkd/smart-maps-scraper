@@ -33,9 +33,16 @@ The actor accepts the following input:
 ```
 
 ## Architecture
-1. **Search Phase**: locating the search box (robustly), scrolling the feed, and collecting Place URLs.
+1. **Search Phase**: Locating the search box (robustly), scrolling the feed, and collecting Place URLs.
 2. **Detail Phase**: Extracting Name, Address, Phone, Website.
-3. **Enrichment Phase**: If a website is found, visit it to detect the tech stack.
+3. **Enrichment Phase**: If a website is found, visit it (via fast HTTP or Playwright fallback) to detect the tech stack.
+
+## Recent Updates (Phase 2 - Performance)
+- **Fast HTTP Enrichment**: Uses lightweight HTTP requests (Axios/Cheerio) instead of full browser navigation for technology detection.
+- **Enrichment Controls**:
+    - `enrichWebsite` (boolean): Toggle website enrichment on/off.
+    - `maxEnrich` (integer): Limit the number of websites to enrich to save resources.
+- **Fallback Strategy**: Automatically falls back to Playwright if HTTP enrichment fails (e.g., due to blocking or complex SPAs).
 
 ## Recent Updates (Phase 3 - Robustness)
 - Added multi-language support for cookie consent (FR/DE/ES).
