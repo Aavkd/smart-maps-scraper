@@ -2,34 +2,42 @@
   "actorSpecification": 1,
   "fields": {
     "title": {
+      "type": "string",
       "label": "Business Name",
       "format": "text"
     },
     "address": {
+      "type": "string",
       "label": "Address",
       "format": "text"
     },
     "phone": {
+      "type": "string",
       "label": "Phone",
       "format": "text"
     },
     "website": {
+      "type": "string",
       "label": "Website",
       "format": "link"
     },
     "mapsUrl": {
+      "type": "string",
       "label": "Maps URL",
       "format": "link"
     },
     "techStack": {
+      "type": "array",
       "label": "Tech Stack",
       "format": "array"
     },
     "enrichmentStatus": {
+      "type": "string",
       "label": "Enrichment Status",
       "format": "text"
     },
     "scrapedAt": {
+      "type": "string",
       "label": "Scraped At",
       "format": "date"
     }
