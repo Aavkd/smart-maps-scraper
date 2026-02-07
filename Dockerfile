@@ -1,14 +1,14 @@
-# Specify the base Docker image.
-FROM apify/actor-node:20
+# Dockerfile
+FROM apify/actor-node-playwright-chrome:20
 
-# Copy just package.json and package-lock.json
+# Copy package.json and package-lock.json
 COPY package*.json ./
 
-# Install all dependencies.
-RUN npm install --include=dev --audit=false
+# Install dependencies
+RUN npm install --omit=dev
 
-# Next, copy the source files.
-COPY . ./
+# Copy source code
+COPY . .
 
-# Run the image.
-CMD npm start
+# Run the image
+CMD [ "npm", "start" ]

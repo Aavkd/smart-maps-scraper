@@ -1,0 +1,20 @@
+{
+    "pricingModels": [
+        {
+            "apifyMargins": {
+                "min": 0.2
+            },
+            "pricingModel": "FLAT_FEE_PER_MONTH",
+            "pricePerUnitUsd": 25.0,
+            "unitName": "month"
+        },
+        {
+            "apifyMargins": {
+                "min": 0.2
+            },
+            "pricingModel": "PAY_PER_EVENT", 
+            "pricePerUnitUsd": 0.005,
+            "unitName": "result"
+        }
+    ]
+}

@@ -1,7 +1,13 @@
 {
-    "actorSpecification": 1,
-    "name": "smart-maps-scraper",
-    "version": "1.0",
+    "title": "Smart Maps Scraper",
+    "description": "Scrape Google Maps for business details (phone, website, address) and enrich with website technology stack detection.",
+    "version": "1.0.0",
+    "buildTag": "latest",
     "dockerfile": "./Dockerfile",
-    "readme": "./README.md"
+    "readme": "./README.md",
+    "actorImage": "apify/actor-node-playwright-chrome:20",
+    "storages": {
+        "dataset": "./storage/datasets/default"
+    },
+    "input": "./storage/key_value_stores/default/INPUT.json"
 }

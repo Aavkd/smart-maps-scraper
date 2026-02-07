@@ -1,26 +1,26 @@
 {
-    "title": "Smart Maps Scraper",
+    "title": "Smart Maps Scraper Input",
     "type": "object",
     "schemaVersion": 1,
     "properties": {
         "searchTerms": {
             "title": "Search Terms",
             "type": "array",
-            "description": "List of business types or terms to search for.",
+            "description": "List of business types or keywords to search for (e.g., 'Dentists', 'Restaurants').",
             "editor": "stringList",
             "prefill": ["Dentists"]
         },
         "location": {
             "title": "Location",
             "type": "string",
-            "description": "The location to search in (City, State, or Zip).",
+            "description": "Location to search in (e.g., 'New York, NY', 'Paris, France').",
             "editor": "textfield",
             "prefill": "New York, NY"
         },
         "maxResults": {
             "title": "Max Results",
             "type": "integer",
-            "description": "Maximum number of unique results to scrape.",
+            "description": "Maximum number of results to scrape.",
             "default": 10,
             "minimum": 1
         },

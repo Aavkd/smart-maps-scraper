@@ -51,5 +51,3 @@ The actor stores results in the default dataset. Each item contains:
 -   **Competitor Analysis**: Gather data on competitors' locations and stacks.
 
 ---
-
-*Note: This actor is for educational and research purposes. Please respect Google Maps' terms of service.*
