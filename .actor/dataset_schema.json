@@ -1,45 +1,41 @@
 {
   "actorSpecification": 1,
   "fields": {
-    "title": {
-      "type": "string",
-      "label": "Business Name",
-      "format": "text"
-    },
-    "address": {
-      "type": "string",
-      "label": "Address",
-      "format": "text"
-    },
-    "phone": {
-      "type": "string",
-      "label": "Phone",
-      "format": "text"
-    },
-    "website": {
-      "type": "string",
-      "label": "Website",
-      "format": "link"
-    },
-    "mapsUrl": {
-      "type": "string",
-      "label": "Maps URL",
-      "format": "link"
-    },
-    "techStack": {
-      "type": "array",
-      "label": "Tech Stack",
-      "format": "array"
-    },
-    "enrichmentStatus": {
-      "type": "string",
-      "label": "Enrichment Status",
-      "format": "text"
-    },
-    "scrapedAt": {
-      "type": "string",
-      "label": "Scraped At",
-      "format": "date"
+    "type": "object",
+    "properties": {
+      "title": {
+        "type": "string",
+        "description": "Business name"
+      },
+      "address": {
+        "type": "string",
+        "description": "Business address"
+      },
+      "phone": {
+        "type": "string",
+        "description": "Phone number"
+      },
+      "website": {
+        "type": "string",
+        "description": "Website URL"
+      },
+      "mapsUrl": {
+        "type": "string",
+        "description": "Google Maps URL"
+      },
+      "techStack": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Detected technologies"
+      },
+      "enrichmentStatus": {
+        "type": "string",
+        "description": "Enrichment status"
+      },
+      "scrapedAt": {
+        "type": "string",
+        "description": "Scrape timestamp"
+      }
     }
   },
   "views": {
